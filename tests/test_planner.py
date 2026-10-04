@@ -91,6 +91,15 @@ class Render(unittest.TestCase):
     def test_footer_counts_closed_today(self):
         self.assertTrue(render([], SUN, NOW, closed_today=4).endswith("закрито сьогодні: 4 · без дати: 0 · оновлено 21:40"))
 
+    def test_english_labels(self):
+        items = [Item("w", "Client session", "Work", due=SUN, priority=3),
+                 Item("h", "Gym", "Habits", due=d(2)),
+                 Item("o", "Report", "Work", due=d(3), priority=4)]
+        text = render(items, SUN, NOW, work_project="Work", closed_today=1, lang="en")
+        self.assertEqual(text.split("\n"), [
+            "ESSENTIALS: Gym (−2 d)", "OVERDUE", "● Report · −1 d", "TODAY", "◐ Client session",
+            "closed today: 1 · no date: 0 · updated 21:40"])
+
     def test_warning_goes_first(self):
         text = render([], SUN, NOW, warning="⚠️ Todoist offline")
         self.assertTrue(text.startswith("⚠️ Todoist offline\n"))

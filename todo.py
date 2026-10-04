@@ -19,10 +19,12 @@ import httpx
 import keyring
 from todoist_api_python.api import TodoistAPI
 
-from planner import Item, render, split_due
+from planner import TEXT, Item, render, split_due
 
 HERE = Path(__file__).resolve().parent
 CFG = json.loads((HERE / "config.json").read_text(encoding="utf-8"))
+LANG = CFG.get("lang", "uk")
+T = TEXT[LANG]
 CACHE = HERE / "cache.json"
 JOURNAL_STATE = HERE / "journal.json"
 LABEL = "claude"
@@ -61,11 +63,11 @@ def load():
         return items, projects, ""
     except Exception as e:
         if not CACHE.exists():
-            return [], {}, f"⚠️ Todoist недоступний ({type(e).__name__}), знімка нема"
+            return [], {}, T["offline_none"].format(e=type(e).__name__)
         raw = json.loads(CACHE.read_text(encoding="utf-8"))
         items = [Item(**{**r, "due": r["due"] and date.fromisoformat(r["due"])}) for r in raw["items"]]
         taken = datetime.fromtimestamp(CACHE.stat().st_mtime)
-        return items, raw["projects"], f"⚠️ Todoist недоступний ({type(e).__name__}), знімок {taken:%d.%m %H:%M}"
+        return items, raw["projects"], T["offline"].format(e=type(e).__name__, t=f"{taken:%d.%m %H:%M}")
 
 
 def closed_events(days, projects):
@@ -105,17 +107,19 @@ def update_journal(events):
 
 def write_journal(state):
     JOURNAL_STATE.write_text(json.dumps(state, ensure_ascii=False, indent=1), encoding="utf-8")
-    out = ["# Todoist: журнал закритого", "",
-           "_Пише `todo.py` сам на кожному циклі віджета. Руками не правити: файл перебудовується з `journal.json`._",
-           "_На старті сесії Claude звіряє свіже з vault і памʼяттю._", ""]
+    Path(CFG["journal_file"]).write_text(journal_text(state), encoding="utf-8")
+
+
+def journal_text(state):
+    out = list(T["journal"])
     day = None
     for e in sorted(state["events"], key=lambda e: e["at"], reverse=True):
         at = datetime.fromisoformat(e["at"])
         if at.date() != day:
             day = at.date()
-            out += ["", f"## {['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'нд'][day.weekday()]} {day:%d.%m.%Y}"]
+            out += ["", f"## {T['days'][day.weekday()]} {day:%d.%m.%Y}"]
         out.append(f"- {at:%H:%M} {e['content']}" + (f" · {e['project']}" if e["project"] else ""))
-    Path(CFG["journal_file"]).write_text("\n".join(out) + "\n", encoding="utf-8")
+    return "\n".join(out) + "\n"
 
 
 def closed_block(events, today):
@@ -124,9 +128,9 @@ def closed_block(events, today):
         if e["project"] not in CFG["exclude"]:
             by_day.setdefault(datetime.fromisoformat(e["at"]).date(), []).append(e["content"])
     if not by_day:
-        return ["✅ ЗАКРИТО за 3 дні: нічого"]
-    return ["✅ ЗАКРИТО за 3 дні (звір з vault):"] + [
-        f"  {'сьогодні' if d == today else f'{d:%d.%m}'}: " + " · ".join(c[:40] for c in cs)
+        return [T["closed_none"]]
+    return [T["closed_head"]] + [
+        f"  {T['today_word'] if d == today else f'{d:%d.%m}'}: " + " · ".join(c[:40] for c in cs)
         for d, cs in sorted(by_day.items(), reverse=True)]
 
 
@@ -158,52 +162,53 @@ def main():
                 events = [e for e in update_journal(closed_events(days, projects))
                           if datetime.fromisoformat(e["at"]) >= since]
             except Exception as e:
-                ev_warn = f"⚠️ журнал закритого недоступний ({type(e).__name__})"
+                ev_warn = T["journal_off"].format(e=type(e).__name__)
         if a.cmd == "widget":
             done_today = None if ev_warn or warn else sum(datetime.fromisoformat(e["at"]).date() == today for e in events)
-            text = render(items, today, now, warning=warn or ev_warn, work_project=CFG["work_project"], closed_today=done_today)
+            text = render(items, today, now, warning=warn or ev_warn, work_project=CFG["work_project"],
+                          closed_today=done_today, lang=LANG)
             (HERE / CFG["widget_file"]).write_text(text, encoding="utf-16")
         elif a.cmd == "done":
             print("\n".join(closed_block(events, today)) if not ev_warn else ev_warn)
         elif a.cmd == "list":
             if a.section:
                 items = [i for i in items if a.section.lower() in i.section.lower()]
-            print(render(items, today, now, days=a.days, with_ids=True, warning=warn))
+            print(render(items, today, now, days=a.days, with_ids=True, warning=warn, lang=LANG))
         else:  # closed + section first: the brief budget cuts from the tail, far days are cheapest to lose
             print("\n".join(closed_block(events, today)) if not (ev_warn or warn) else ev_warn or "")
             section = CFG["sections"].get(a.folder)
             if section:
                 later = [i for i in items if i.section == section and not i.parent_id
                          and (not i.due or i.due > today + timedelta(days=3))]
-                print(f"📂 СЕКЦІЯ «{section}» (сесія про {a.folder}), далі за 3 дні:")
-                print("\n".join(f"  · {i.content[:50]} · {i.due:%d.%m} `{i.id}`" if i.due else f"  · {i.content[:50]} · без дати `{i.id}`"
-                                for i in sorted(later, key=lambda i: i.due or date.max)) or "  нічого")
-            print(render(items, today, now, with_ids=True, warning=warn, work_project=CFG["work_project"]))
+                print(T["section"].format(s=section, f=a.folder))
+                print("\n".join(f"  · {i.content[:50]} · {i.due:%d.%m} `{i.id}`" if i.due else f"  · {i.content[:50]} · {T['no_date']} `{i.id}`"
+                                for i in sorted(later, key=lambda i: i.due or date.max)) or f"  {T['nothing']}")
+            print(render(items, today, now, with_ids=True, warning=warn, work_project=CFG["work_project"], lang=LANG))
         return
 
     client = api()
     if a.cmd == "find":
         for i in fetch(client)[0]:
             if a.text.lower() in i.content.lower():
-                print(f"`{i.id}` {i.content} · {i.section or i.project} · {i.due or 'без дати'}")
+                print(f"`{i.id}` {i.content} · {i.section or i.project} · {i.due or T['no_date']}")
     elif a.cmd == "show":
         t = client.get_task(a.id)
         print(t.content, "\n", t.description, sep="")
     elif a.cmd == "add":
         matches = [s for s in flat(client.get_sections()) if a.section.lower() in s.name.lower()]
         if len(matches) != 1:
-            sys.exit(f"секція «{a.section}»: збігів {len(matches)}, треба рівно 1")
+            sys.exit(T["section_bad"].format(s=a.section, n=len(matches)))
         kw = dict(labels=[LABEL], description=a.desc, due_string=a.due,
                   due_lang="en" if a.due else None, priority=PRIORITY.get(a.p))
         kw.update(parent_id=a.parent) if a.parent else kw.update(section_id=matches[0].id, project_id=matches[0].project_id)
         # Todoist cuts "@word" out of the title as a label even with auto_parse_labels=False (checked 04.10)
         t = client.add_task(a.content.replace("@", ""), **{k: v for k, v in kw.items() if v is not None})
-        note = " (@ прибрано, інакше Todoist ріже слово)" if "@" in a.content else ""
-        print(f"створено `{t.id}` {t.content} · {t.due.date if t.due else 'без дати'}{note}")
+        note = T["at_removed"] if "@" in a.content else ""
+        print(T["created"].format(id=t.id, c=t.content, d=t.due.date if t.due else T["no_date"]) + note)
     elif a.cmd == "close":
         t = client.get_task(a.id)
         client.complete_task(a.id)
-        print(f"закрито: {t.content}")
+        print(T["closed"].format(c=t.content))
 
 
 if __name__ == "__main__":

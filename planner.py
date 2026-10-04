@@ -2,8 +2,35 @@
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
-WD = ["пн", "вт", "ср", "чт", "пт", "сб", "нд"]
 BULLET = {4: "●", 3: "◐", 2: "○"}  # Todoist API scale: 4 = P1 (red)
+
+# Every word the widget, the brief, the journal and the CLI show. "lang" in config.json picks one.
+TEXT = {
+    "uk": dict(days=["пн", "вт", "ср", "чт", "пт", "сб", "нд"], today="СЬОГОДНІ", overdue="ПРОСТРОЧЕНЕ", basic="БАЗОВЕ",
+               more="ще {n}", late="−{n} дн", closed_today="закрито сьогодні: {n}", undated="без дати: {n}",
+               updated="оновлено {t}", today_word="сьогодні", nothing="нічого", no_date="без дати",
+               closed_none="✅ ЗАКРИТО за 3 дні: нічого", closed_head="✅ ЗАКРИТО за 3 дні (звір з vault):",
+               offline="⚠️ Todoist недоступний ({e}), знімок {t}", offline_none="⚠️ Todoist недоступний ({e}), знімка нема",
+               journal_off="⚠️ журнал закритого недоступний ({e})",
+               journal=["# Todoist: журнал закритого", "",
+                        "_Пише `todo.py` сам на кожному циклі віджета. Руками не правити: файл перебудовується з `journal.json`._",
+                        "_На старті сесії Claude звіряє свіже з vault і памʼяттю._", ""],
+               section="📂 СЕКЦІЯ «{s}» (сесія про {f}), далі за 3 дні:",
+               section_bad="секція «{s}»: збігів {n}, треба рівно 1", at_removed=" (@ прибрано, інакше Todoist ріже слово)",
+               created="створено `{id}` {c} · {d}", closed="закрито: {c}"),
+    "en": dict(days=["mon", "tue", "wed", "thu", "fri", "sat", "sun"], today="TODAY", overdue="OVERDUE", basic="ESSENTIALS",
+               more="{n} more", late="−{n} d", closed_today="closed today: {n}", undated="no date: {n}",
+               updated="updated {t}", today_word="today", nothing="nothing", no_date="no date",
+               closed_none="✅ CLOSED in 3 days: nothing", closed_head="✅ CLOSED in 3 days (check against notes):",
+               offline="⚠️ Todoist unavailable ({e}), snapshot {t}", offline_none="⚠️ Todoist unavailable ({e}), no snapshot",
+               journal_off="⚠️ closed-task journal unavailable ({e})",
+               journal=["# Todoist: closed-task journal", "",
+                        "_Written by `todo.py` on every widget refresh. Do not edit by hand: rebuilt from `journal.json`._",
+                        "_At session start Claude checks the fresh entries against the notes._", ""],
+               section="📂 SECTION «{s}» (session about {f}), beyond 3 days:",
+               section_bad="section «{s}»: {n} matches, need exactly 1", at_removed=" (@ removed, Todoist would cut the word)",
+               created="created `{id}` {c} · {d}", closed="closed: {c}"),
+}
 
 
 @dataclass
@@ -44,11 +71,11 @@ def plan(items, today, days=3):
     return overdue, by_day, undated
 
 
-def _day_name(d, today):
-    return "СЬОГОДНІ" if d == today else f"{WD[d.weekday()].upper()} {d:%d.%m}"
+def _day_name(d, today, t):
+    return t["today"] if d == today else f"{t['days'][d.weekday()].upper()} {d:%d.%m}"
 
 
-def _lines(group, by_id, kids, with_ids):
+def _lines(group, by_id, kids, with_ids, t):
     """Subtasks go under their parent when it is in the same group, otherwise they carry its name."""
     shown = {i.id for i in group}
     out = []
@@ -58,7 +85,7 @@ def _lines(group, by_id, kids, with_ids):
         if standalone and i.parent_id in by_id:
             s += f" ({by_id[i.parent_id].content})"
         if kids.get(i.id):
-            s += f" · ще {kids[i.id]}"
+            s += " · " + t["more"].format(n=kids[i.id])
         if i.time:
             s = f"{i.time} {s}"
         if with_ids:
@@ -77,10 +104,11 @@ def _short(text, n=30):
     return text if len(text) <= n else text[:n].rstrip() + "…"
 
 
-def render(items, today, now, days=3, with_ids=False, warning="", work_project=None, closed_today=None):
+def render(items, today, now, days=3, with_ids=False, warning="", work_project=None, closed_today=None, lang="uk"):
     """Plain text for the widget (with_ids=False) or markdown-ish for the session brief (with_ids=True).
-    With work_project set, personal tasks due today or overdue fold into one "БАЗОВЕ" line on top,
-    so they are not forgotten and do not push work tasks down."""
+    With work_project set, personal tasks fold into one "basic" line (today and overdue on top, other days
+    under their header), so they are not forgotten and do not push work tasks down."""
+    t = TEXT[lang]
     by_id = {i.id: i for i in items}
     kids = {}
     for i in items:
@@ -95,18 +123,18 @@ def render(items, today, now, days=3, with_ids=False, warning="", work_project=N
     out = [warning] if warning else []
     if basic:
         basic.sort(key=lambda i: (i.due, -i.priority))
-        out.append("БАЗОВЕ: " + " · ".join(
-            _short(i.content) + (f" (−{(today - i.due).days} дн)" if i.due < today else "") for i in basic))
+        out.append(f"{t['basic']}: " + " · ".join(
+            _short(i.content) + (f" ({t['late'].format(n=(today - i.due).days)})" if i.due < today else "") for i in basic))
     if overdue:
-        out.append("ПРОСТРОЧЕНЕ")
-        out += [f"{_lines([i], by_id, kids, with_ids)[0]} · −{(today - i.due).days} дн" for i in overdue]
+        out.append(t["overdue"])
+        out += [f"{_lines([i], by_id, kids, with_ids, t)[0]} · {t['late'].format(n=(today - i.due).days)}" for i in overdue]
     for d, group in by_day.items():
         if group:
-            out.append(_day_name(d, today))
+            out.append(_day_name(d, today, t))
             personal = [i for i in group if work_project and i.project != work_project]
             if personal:
-                out.append("БАЗОВЕ: " + " · ".join(_short(i.content) for i in personal))
-            out += _lines([i for i in group if i not in personal], by_id, kids, with_ids)
-    closed = f"закрито сьогодні: {closed_today} · " if closed_today is not None else ""
-    out.append(f"{closed}без дати: {undated} · оновлено {now:%H:%M}")
+                out.append(f"{t['basic']}: " + " · ".join(_short(i.content) for i in personal))
+            out += _lines([i for i in group if i not in personal], by_id, kids, with_ids, t)
+    closed = t["closed_today"].format(n=closed_today) + " · " if closed_today is not None else ""
+    out.append(f"{closed}{t['undated'].format(n=undated)} · {t['updated'].format(t=f'{now:%H:%M}')}")
     return "\n".join(out)

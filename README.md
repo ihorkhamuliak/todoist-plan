@@ -1,5 +1,7 @@
 # todoist-plan
 
+**English** | [Українська](README.uk.md)
+
 A day plan that lives in Todoist and shows up in two places: on the Windows desktop (Rainmeter widget)
 and at the start of every Claude Code session (a short brief). Built for one person who kept asking
 "what's the plan for today?" instead of just doing it.
@@ -10,14 +12,16 @@ section with the context, so the plan stays short and nothing is lost.
 ## What you get
 
 ```
-БАЗОВЕ: Pay internet (−2 дн) · Exercise · English        ← personal tasks folded into one line
-СЬОГОДНІ
-◐ Client session · ще 3                                  ← ● P1  ◐ P2  ○ P3, "ще 3" = open subtasks
+ESSENTIALS: Pay internet (−2 d) · Exercise · English     ← personal tasks folded into one line
+TODAY
+◐ Client session · 3 more                                ← ● P1  ◐ P2  ○ P3, "3 more" = open subtasks
    ↳ 19:20 Send the follow-up
-ВТ 06.10
-● Bot v1: test 10 applications (Bot v1)
-закрито сьогодні: 2 · без дати: 4 · оновлено 08:00       ← closed today, undated, last refresh
+TUE 06.10
+● Test 10 applications (Bot v1)
+closed today: 2 · no date: 4 · updated 08:00             ← closed today, undated, last refresh
 ```
+
+Labels come in English (`"lang": "en"`) or Ukrainian (`"lang": "uk"`), set in `config.json`. Task names stay as you wrote them.
 
 - **Overdue + today + 3 days.** Repeating tasks count as overdue too: a missed bill is still missed.
 - **Work in detail, personal in one line**, so habits and errands are seen but do not push work down.
@@ -29,7 +33,7 @@ section with the context, so the plan stays short and nothing is lost.
 
 ```
 py -m pip install todoist-api-python keyring httpx
-copy config.example.json config.json            # set work project, excluded projects, journal path
+copy config.example.json config.json            # set language, work project, excluded projects, journal path
 py save_token.py                                # after copying the API token in Todoist
 py todo.py brief
 ```

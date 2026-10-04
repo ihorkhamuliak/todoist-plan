@@ -1,4 +1,5 @@
 {
+  "lang": "en",
   "work_project": "💼 Work",
   "exclude": ["Ideas"],
   "widget_file": "widget.txt",
