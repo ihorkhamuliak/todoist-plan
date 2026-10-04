@@ -159,7 +159,9 @@ def main():
             try:
                 days = getattr(a, "days", 3)
                 since = (datetime.now() - timedelta(days=days)).astimezone()
-                events = [e for e in update_journal(closed_events(days, projects))
+                # the journal asks for 7 days (Free keeps a week of activity): a laptop off for 4+ days
+                # must not lose closings; the brief still shows only `days`
+                events = [e for e in update_journal(closed_events(max(days, 7), projects))
                           if datetime.fromisoformat(e["at"]) >= since]
             except Exception as e:
                 ev_warn = T["journal_off"].format(e=type(e).__name__)
