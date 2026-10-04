@@ -1,0 +1,10 @@
+{
+  "work_project": "💼 Work",
+  "exclude": ["Ideas"],
+  "widget_file": "widget.txt",
+  "journal_file": "C:/path/to/notes/Todoist - closed log.md",
+  "sections": {
+    "client-project-folder": "🛠 Client projects",
+    "job-search": "🎯 Job search"
+  }
+}

@@ -1,0 +1,6 @@
+config.json
+cache.json
+journal.json
+widget.txt
+rainmeter/PlanDay/@Resources/paths.inc
+__pycache__/
