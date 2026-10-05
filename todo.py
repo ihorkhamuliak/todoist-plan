@@ -169,7 +169,8 @@ def main():
             done_today = None if ev_warn or warn else sum(datetime.fromisoformat(e["at"]).date() == today for e in events)
             text = render(items, today, now, warning=warn or ev_warn, work_project=CFG["work_project"],
                           closed_today=done_today, lang=LANG)
-            (HERE / CFG["widget_file"]).write_text(text, encoding="utf-16")
+            # utf-16-le, not utf-16: the BOM it adds stays in front of line 1 and the skin's ^ patterns miss it
+            (HERE / CFG["widget_file"]).write_text(text, encoding="utf-16-le")
         elif a.cmd == "done":
             print("\n".join(closed_block(events, today)) if not ev_warn else ev_warn)
         elif a.cmd == "list":

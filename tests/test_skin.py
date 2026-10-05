@@ -21,9 +21,12 @@ def patterns():
 def sample(lang):
     items = [Item("o", "Report", "Work", due=date(2026, 10, 2), priority=4),
              Item("t", "Client session", "Work", due=SUN, priority=3),
-             Item("h", "Gym", "Habits", due=SUN),
+             Item("h", "Gym", "Habits", due=date(2026, 10, 3)),
              Item("n", "Plan", "Work", due=date(2026, 10, 5), priority=2)]
-    return render(items, SUN, datetime(2026, 10, 4, 8, 0), work_project="Work", closed_today=1, lang=lang).split("\n")
+    text = render(items, SUN, datetime(2026, 10, 4, 8, 0), work_project="Work", closed_today=1, lang=lang)
+    # the way Rainmeter gets it: written with todo.py's encoding, read as UTF-16LE (CodePage=1200), BOM kept
+    enc = re.search(r'widget_file"\]\)\.write_text\(text, encoding="([^"]+)"\)', (ROOT / "todo.py").read_text("utf-8"))[1]
+    return text.encode(enc).decode("utf-16-le").split("\n")
 
 
 class Skin(unittest.TestCase):
@@ -37,11 +40,11 @@ class Skin(unittest.TestCase):
             hit = lambda key: [l for l in lines if re.search(p[key], l)]
             with self.subTest(lang=lang):
                 self.assertEqual(len(hit("InlinePattern")), 3)            # overdue, today, next day headers
-                self.assertEqual(len(hit("InlinePattern3")), 1)           # overdue header in red
-                self.assertEqual(len(hit("InlinePattern4")), 1)           # "−2 d" tail in red
+                self.assertEqual(len(hit("InlinePattern3")), 1)           # overdue header in red, first line
+                self.assertEqual(hit("InlinePattern4"), [lines[3]])       # personal line green, under today
+                self.assertTrue(lines[3].startswith(("БАЗОВЕ: Gym", "ESSENTIALS: Gym")))
+                self.assertEqual(len(hit("InlinePattern10")), 2)          # "−2 d" tails red, in the green line too
                 self.assertEqual(hit("InlinePattern8"), [lines[-1]])      # footer grey
-                self.assertEqual(len(hit("InlinePattern10")), 1)          # personal line green
-                self.assertTrue(hit("InlinePattern10")[0].endswith("Gym"))
 
 
 if __name__ == "__main__":

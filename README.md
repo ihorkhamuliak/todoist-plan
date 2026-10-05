@@ -12,8 +12,8 @@ section with the context, so the plan stays short and nothing is lost.
 ## What you get
 
 ```
-ESSENTIALS: Pay internet (−2 d) · Exercise · English     ← personal tasks folded into one line
 TODAY
+ESSENTIALS: Pay internet (−2 d) · Exercise · English     ← personal tasks in one line, overdue first
 ◐ Client session · 3 more                                ← ● P1  ◐ P2  ○ P3, "3 more" = open subtasks
    ↳ 19:20 Send the follow-up
 TUE 06.10

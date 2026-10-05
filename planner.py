@@ -106,8 +106,8 @@ def _short(text, n=30):
 
 def render(items, today, now, days=3, with_ids=False, warning="", work_project=None, closed_today=None, lang="uk"):
     """Plain text for the widget (with_ids=False) or markdown-ish for the session brief (with_ids=True).
-    With work_project set, personal tasks fold into one "basic" line (today and overdue on top, other days
-    under their header), so they are not forgotten and do not push work tasks down."""
+    With work_project set, personal tasks fold into one "basic" line under each day's header (overdue ones join
+    today's line, first), so they are not forgotten and do not push work tasks down."""
     t = TEXT[lang]
     by_id = {i.id: i for i in items}
     kids = {}
@@ -121,19 +121,18 @@ def render(items, today, now, days=3, with_ids=False, warning="", work_project=N
     overdue, by_day, undated = plan(items, today, days)
 
     out = [warning] if warning else []
-    if basic:
-        basic.sort(key=lambda i: (i.due, -i.priority))
-        out.append(f"{t['basic']}: " + " · ".join(
-            _short(i.content) + (f" ({t['late'].format(n=(today - i.due).days)})" if i.due < today else "") for i in basic))
     if overdue:
         out.append(t["overdue"])
         out += [f"{_lines([i], by_id, kids, with_ids, t)[0]} · {t['late'].format(n=(today - i.due).days)}" for i in overdue]
+    basic.sort(key=lambda i: (i.due, -i.priority))
     for d, group in by_day.items():
-        if group:
+        personal = basic if d == today else [i for i in group if work_project and i.project != work_project]
+        if group or personal:
             out.append(_day_name(d, today, t))
-            personal = [i for i in group if work_project and i.project != work_project]
             if personal:
-                out.append(f"{t['basic']}: " + " · ".join(_short(i.content) for i in personal))
+                out.append(f"{t['basic']}: " + " · ".join(
+                    _short(i.content) + (f" ({t['late'].format(n=(today - i.due).days)})" if i.due < today else "")
+                    for i in personal))
             out += _lines([i for i in group if i not in personal], by_id, kids, with_ids, t)
     closed = t["closed_today"].format(n=closed_today) + " · " if closed_today is not None else ""
     out.append(f"{closed}{t['undated'].format(n=undated)} · {t['updated'].format(t=f'{now:%H:%M}')}")

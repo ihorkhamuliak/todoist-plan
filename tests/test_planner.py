@@ -72,21 +72,24 @@ class Render(unittest.TestCase):
         text = render([Item("42", "Widget", "W", section="System", due=SUN)], SUN, NOW, with_ids=True)
         self.assertIn("СЬОГОДНІ\n· Widget `42`", text)
 
-    def test_personal_today_and_overdue_fold_into_one_basic_line(self):
+    def test_personal_today_and_overdue_fold_into_basic_line_under_today(self):
         items = [Item("w", "Client session", "Work", due=SUN),
                  Item("h", "Morning exercise, yoga and a cold shower", "Habits", due=SUN, recurring=True),
                  Item("b", "Pay internet", "Home", due=d(2)),
                  Item("f", "Birthday", "Home", due=d(6))]
         text = render(items, SUN, NOW, work_project="Work")
-        lines = text.split("\n")
-        self.assertEqual(lines[0], "БАЗОВЕ: Pay internet (−2 дн) · Morning exercise, yoga and a c…")
+        self.assertEqual(text.split("\n")[:3], [
+            "СЬОГОДНІ", "БАЗОВЕ: Pay internet (−2 дн) · Morning exercise, yoga and a c…", "· Client session"])
         self.assertNotIn("ПРОСТРОЧЕНЕ", text)       # personal overdue lives in the basic line
-        self.assertIn("СЬОГОДНІ\n· Client session", text)
         self.assertIn("ВТ 06.10\nБАЗОВЕ: Birthday", text)  # future days fold personal tasks too
 
     def test_day_with_only_personal_tasks_still_shows(self):
         text = render([Item("h", "Gym", "Habits", due=d(5))], SUN, NOW, work_project="Work")
         self.assertIn("ПН 05.10\nБАЗОВЕ: Gym", text)
+
+    def test_only_overdue_personal_still_opens_today(self):
+        text = render([Item("h", "Gym", "Habits", due=d(3))], SUN, NOW, work_project="Work")
+        self.assertTrue(text.startswith("СЬОГОДНІ\nБАЗОВЕ: Gym (−1 дн)\n"))
 
     def test_footer_counts_closed_today(self):
         self.assertTrue(render([], SUN, NOW, closed_today=4).endswith("закрито сьогодні: 4 · без дати: 0 · оновлено 21:40"))
@@ -97,7 +100,7 @@ class Render(unittest.TestCase):
                  Item("o", "Report", "Work", due=d(3), priority=4)]
         text = render(items, SUN, NOW, work_project="Work", closed_today=1, lang="en")
         self.assertEqual(text.split("\n"), [
-            "ESSENTIALS: Gym (−2 d)", "OVERDUE", "● Report · −1 d", "TODAY", "◐ Client session",
+            "OVERDUE", "● Report · −1 d", "TODAY", "ESSENTIALS: Gym (−2 d)", "◐ Client session",
             "closed today: 1 · no date: 0 · updated 21:40"])
 
     def test_warning_goes_first(self):
