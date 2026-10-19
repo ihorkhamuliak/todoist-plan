@@ -1,4 +1,5 @@
 """Planning logic: which tasks to show and how. No network here, so all of it is unit-tested."""
+import re
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
@@ -17,7 +18,8 @@ TEXT = {
                         "_На старті сесії Claude звіряє свіже з vault і памʼяттю._", ""],
                section="📂 СЕКЦІЯ «{s}» (сесія про {f}), далі за 3 дні:",
                section_bad="секція «{s}»: збігів {n}, треба рівно 1", at_removed=" (@ прибрано, інакше Todoist ріже слово)",
-               created="створено `{id}` {c} · {d}", closed="закрито: {c}"),
+               created="створено `{id}` {c} · {d}", closed="закрито: {c}",
+               overload="⚠️ ПЕРЕВАНТАЖЕНО: {d}", tasks="{n} задач", est="~{h} год за оцінками", no_est="{n} без оцінки"),
     "en": dict(days=["mon", "tue", "wed", "thu", "fri", "sat", "sun"], today="TODAY", overdue="OVERDUE", basic="ESSENTIALS",
                more="{n} more", late="−{n} d", closed_today="closed today: {n}", undated="no date: {n}",
                updated="updated {t}", today_word="today", nothing="nothing", no_date="no date",
@@ -29,7 +31,8 @@ TEXT = {
                         "_At session start Claude checks the fresh entries against the notes._", ""],
                section="📂 SECTION «{s}» (session about {f}), beyond 3 days:",
                section_bad="section «{s}»: {n} matches, need exactly 1", at_removed=" (@ removed, Todoist would cut the word)",
-               created="created `{id}` {c} · {d}", closed="closed: {c}"),
+               created="created `{id}` {c} · {d}", closed="closed: {c}",
+               overload="⚠️ OVERLOADED: {d}", tasks="{n} tasks", est="~{h} h by estimates", no_est="{n} without one"),
 }
 
 
@@ -69,6 +72,50 @@ def plan(items, today, days=3):
         day.sort(key=key)
     undated = sum(1 for i in items if not i.due and not i.parent_id)
     return overdue, by_day, undated
+
+
+# "~1,5 год", "30 хв", "2 h": the last one in the title is the task's own estimate. "~15-20 год" is a project's scope.
+ESTIMATE = re.compile(r"(?<![\d.,-])~?(\d+(?:[.,]\d+)?)\s*(год|хв|h|min)\b")
+WORD = re.compile(r"[A-Za-z][A-Za-z0-9-]*[A-Za-z0-9]")  # SQL, LinkedIn, n8n: a topic planned twice shows as a repeat
+
+
+def _minutes(text):
+    found = ESTIMATE.findall(text)
+    if not found:
+        return None
+    n, unit = found[-1]
+    return float(n.replace(",", ".")) * (60 if unit in ("год", "h") else 1)
+
+
+def overload(items, today, work_project=None, days=7, hours=8, count=8, repeat=3, small=15, lang="uk"):
+    """→ {day: why} for work days that are too much: estimates over `hours`, over `count` real tasks (checks of
+    `small` minutes or less don't count), or one word in `repeat`+ tasks from different sections. Different
+    sessions planned the same day and nobody added it up: SQL three times in one day, from the job section and
+    the learning section. One project's own tasks in its own section are a focus day, not a repeat."""
+    t = TEXT[lang]
+    out = {}
+    for n in range(days + 1):
+        day = today + timedelta(n)
+        group = [i for i in items if i.due == day and (not work_project or i.project == work_project)]
+        est = [_minutes(i.content) for i in group]
+        mins = sum(m for m in est if m)
+        real = sum(1 for m in est if m is None or m > small)
+        first, sections = {}, {}
+        for i in group:
+            for w in WORD.findall(i.content):
+                first.setdefault(w.lower(), w)
+            for w in {w.lower() for w in WORD.findall(i.content)}:
+                sections.setdefault(w, []).append(i.section)
+        repeats = [f"{first[w]} ×{len(s)}" for w, s in sorted(sections.items(), key=lambda x: -len(x[1]))
+                   if len(s) >= repeat and len(set(s)) > 1]
+        if mins <= hours * 60 and real <= count and not repeats:
+            continue
+        h = f"{mins / 60:.1f}".replace(".", "," if lang == "uk" else ".")
+        missing = est.count(None)
+        parts = ([t["tasks"].format(n=real)] if real > count else []) + ([", ".join(repeats)] if repeats else [])
+        parts.append(t["est"].format(h=h) + (f", {t['no_est'].format(n=missing)}" if missing else ""))
+        out[day] = " · ".join(parts)
+    return out
 
 
 def _day_name(d, today, t):
@@ -114,13 +161,16 @@ def render(items, today, now, days=3, with_ids=False, warning="", work_project=N
     for i in items:
         if i.parent_id:
             kids[i.parent_id] = kids.get(i.parent_id, 0) + 1
-    basic = []
+    basic, heavy = [], {}
     if work_project:
+        heavy = overload(items, today, work_project=work_project, lang=lang)
         basic = [i for i in items if i.project != work_project and i.due and i.due <= today]
         items = [i for i in items if i not in basic]
     overdue, by_day, undated = plan(items, today, days)
 
     out = [warning] if warning else []
+    if heavy:
+        out.append(t["overload"].format(d=" | ".join(f"{t['days'][d.weekday()]} {d:%d.%m}: {why}" for d, why in heavy.items())))
     if overdue:
         out.append(t["overdue"])
         out += [f"{_lines([i], by_id, kids, with_ids, t)[0]} · {t['late'].format(n=(today - i.due).days)}" for i in overdue]
