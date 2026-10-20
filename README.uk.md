@@ -59,6 +59,7 @@ py todo.py brief
 | `todo.py list [--section S] [--days N]` / `find TEXT` / `show ID` | подивитись |
 | `todo.py add "TEXT" --section S [--due "Oct 6"] [--parent ID] [--p 1-3]` | нова задача, мітка `claude`, за замовчуванням P3 |
 | `todo.py close ID` | закрити |
+| `todo.py move ID "Oct 23"` | нова дата (англійською) або `"no date"` |
 
 ## Пастки Todoist API, на які ми наступили (жовтень 2026, API v1, SDK 4.0)
 

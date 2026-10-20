@@ -59,6 +59,7 @@ Clicking it opens the Todoist app on Today.
 | `todo.py list [--section S] [--days N]` / `find TEXT` / `show ID` | look around |
 | `todo.py add "TEXT" --section S [--due "Oct 6"] [--parent ID] [--p 1-3]` | new task, label `claude`, P3 by default |
 | `todo.py close ID` | close |
+| `todo.py move ID "Oct 23"` | new date (English), or `"no date"` |
 
 ## Todoist API traps we hit (Oct 2026, API v1, SDK 4.0)
 
