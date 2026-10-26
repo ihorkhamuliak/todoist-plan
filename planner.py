@@ -18,7 +18,7 @@ TEXT = {
                         "_На старті сесії Claude звіряє свіже з vault і памʼяттю._", ""],
                section="📂 СЕКЦІЯ «{s}» (сесія про {f}), далі за 3 дні:",
                section_bad="секція «{s}»: збігів {n}, треба рівно 1", at_removed=" (@ прибрано, інакше Todoist ріже слово)",
-               created="створено `{id}` {c} · {d}", closed="закрито: {c}", moved="перенесено: {c} · {d}",
+               created="створено `{id}` {c} · {d}", closed="закрито: {c}", moved="перенесено: {c} · {d}", renamed="перейменовано: {c}",
                overload="⚠️ ПЕРЕВАНТАЖЕНО: {d}", tasks="{n} задач", est="~{h} год за оцінками", no_est="{n} без оцінки"),
     "en": dict(days=["mon", "tue", "wed", "thu", "fri", "sat", "sun"], today="TODAY", overdue="OVERDUE", basic="ESSENTIALS",
                more="{n} more", late="−{n} d", closed_today="closed today: {n}", undated="no date: {n}",
@@ -31,7 +31,7 @@ TEXT = {
                         "_At session start Claude checks the fresh entries against the notes._", ""],
                section="📂 SECTION «{s}» (session about {f}), beyond 3 days:",
                section_bad="section «{s}»: {n} matches, need exactly 1", at_removed=" (@ removed, Todoist would cut the word)",
-               created="created `{id}` {c} · {d}", closed="closed: {c}", moved="moved: {c} · {d}",
+               created="created `{id}` {c} · {d}", closed="closed: {c}", moved="moved: {c} · {d}", renamed="renamed: {c}",
                overload="⚠️ OVERLOADED: {d}", tasks="{n} tasks", est="~{h} h by estimates", no_est="{n} without one"),
 }
 

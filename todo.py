@@ -11,6 +11,7 @@ Token lives in Windows Credential Manager:  keyring  service "todoist", user "ap
   py todo.py add "TEXT" --section S [--due "Oct 6"] [--parent ID] [--desc D] [--p 1|2|3, default 3]
   py todo.py close ID
   py todo.py move ID "Oct 23"          new date in English, or "no date"
+  py todo.py rename ID "TEXT"          new title (in PowerShell put $ in single quotes, or it expands)
 """
 import argparse, json, sys
 from datetime import date, datetime, timedelta, timezone
@@ -150,6 +151,7 @@ def main():
     p.add_argument("--p", type=int, choices=[1, 2, 3], default=3)  # every task gets a flag
     p = sub.add_parser("close"); p.add_argument("id")
     p = sub.add_parser("move"); p.add_argument("id"); p.add_argument("due")
+    p = sub.add_parser("rename"); p.add_argument("id"); p.add_argument("content")
     a = ap.parse_args()
     today, now = date.today(), datetime.now()
 
@@ -217,6 +219,9 @@ def main():
     elif a.cmd == "move":
         t = client.update_task(a.id, due_string=a.due, due_lang="en")
         print(T["moved"].format(c=t.content, d=t.due.date if t.due else T["no_date"]))
+    elif a.cmd == "rename":
+        t = client.update_task(a.id, content=a.content.replace("@", ""))
+        print(T["renamed"].format(c=t.content))
 
 
 if __name__ == "__main__":
