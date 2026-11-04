@@ -120,7 +120,8 @@ def journal_text(state):
         if at.date() != day:
             day = at.date()
             out += ["", f"## {T['days'][day.weekday()]} {day:%d.%m.%Y}"]
-        out.append(f"- {at:%H:%M} {e['content']}" + (f" · {e['project']}" if e["project"] else ""))
+        content = " ".join(e["content"].split())  # назва з переносом не має ставати своїм рядком/заголовком (аудит 30.10)
+        out.append(f"- {at:%H:%M} {content}" + (f" · {e['project']}" if e["project"] else ""))
     return "\n".join(out) + "\n"
 
 
