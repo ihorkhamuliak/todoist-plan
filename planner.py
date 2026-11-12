@@ -133,6 +133,8 @@ def _lines(group, by_id, kids, with_ids, t):
         s = i.content
         if standalone and i.parent_id in by_id:
             s += f" ({by_id[i.parent_id].content})"
+        if not with_ids:  # widget: one line per task, the full text is in Todoist; the brief keeps it all
+            s = _short(s, 55)
         if kids.get(i.id):
             s += " · " + t["more"].format(n=kids[i.id])
         if i.time:

@@ -68,6 +68,13 @@ class Render(unittest.TestCase):
                  Item("c", "Test 10 applications", "W", due=d(6), parent_id="p")]
         self.assertIn("· Test 10 applications (Bot v1)", render(items, SUN, NOW))
 
+    def test_widget_cuts_long_task_to_one_line_brief_keeps_it_full(self):
+        long = "GitHub Foundations: 1) practice exam on learn.github.com, then register the student voucher"
+        items = [Item("p", long, "W", due=SUN), Item("c", "Step", "W", parent_id="p")]
+        widget = render(items, SUN, NOW)
+        self.assertIn("· " + long[:55].rstrip() + "… · ще 1\n", widget)
+        self.assertIn(long, render(items, SUN, NOW, with_ids=True))
+
     def test_brief_mode_has_ids(self):
         text = render([Item("42", "Widget", "W", section="System", due=SUN)], SUN, NOW, with_ids=True)
         self.assertIn("СЬОГОДНІ\n· Widget `42`", text)
